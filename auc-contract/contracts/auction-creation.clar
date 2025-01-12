@@ -49,3 +49,28 @@
 ;; Variables
 (define-data-var auction-nonce uint u0)
 (define-data-var house-nonce uint u0)
+
+;; Functions
+
+;; Create a new auction house
+(define-public (create-auction-house (name (string-ascii 64)) (fee-percentage uint) (min-duration uint) (max-duration uint))
+  (let
+    (
+      (new-house-id (+ (var-get house-nonce) u1))
+    )
+    (asserts! (<= fee-percentage u100) err-invalid-price)
+    (asserts! (< min-duration max-duration) err-invalid-duration)
+    (map-set auction-houses
+      { house-id: new-house-id }
+      {
+        owner: tx-sender,
+        name: name,
+        fee-percentage: fee-percentage,
+        min-auction-duration: min-duration,
+        max-auction-duration: max-duration
+      }
+    )
+    (var-set house-nonce new-house-id)
+    (ok new-house-id)
+  )
+)
