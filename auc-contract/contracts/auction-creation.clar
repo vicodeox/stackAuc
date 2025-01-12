@@ -69,3 +69,93 @@
   )
 )
 
+;; Start a new auction
+(define-public (start-auction (house-id uint) (duration uint) (starting-price uint) (reserve-price (optional uint)) (item-id (string-ascii 256)))
+  (let
+    (
+      (new-auction-id (+ (var-get auction-nonce) u1))
+      (house (unwrap! (map-get? auction-houses { house-id: house-id }) err-house-not-found))
+    )
+    (asserts! (and (>= duration (get min-auction-duration house)) (<= duration (get max-auction-duration house))) err-invalid-duration)
+    (asserts! (> starting-price u0) err-invalid-price)
+    (map-set auctions
+      { auction-id: new-auction-id }
+      {
+        creator: tx-sender,
+        start-time: stacks-block-height,
+        duration: duration,
+        starting-price: starting-price,
+        reserve-price: reserve-price,
+        item-id: item-id,
+        house-id: house-id,
+        status: "pending"
+      }
+    )
+    (var-set auction-nonce new-auction-id)
+    (ok new-auction-id)
+  )
+)
+
+;; Set or modify the reserve price of an auction
+(define-public (set-reserve-price (auction-id uint) (new-reserve-price uint))
+  (let
+    (
+      (auction (unwrap! (map-get? auctions { auction-id: auction-id }) err-auction-not-found))
+    )
+    (asserts! (is-eq tx-sender (get creator auction)) err-not-authorized)
+    (asserts! (is-eq (get status auction) "pending") err-auction-started)
+    (asserts! (>= new-reserve-price (get starting-price auction)) err-invalid-price)
+    (map-set auctions
+      { auction-id: auction-id }
+      (merge auction { reserve-price: (some new-reserve-price) })
+    )
+    (ok true)
+  )
+)
+
+;; Modify auction details before any bids are placed
+(define-public (modify-auction-details (auction-id uint) (new-duration (optional uint)) (new-starting-price (optional uint)))
+  (let
+    (
+      (auction (unwrap! (map-get? auctions { auction-id: auction-id }) err-auction-not-found))
+      (house (unwrap! (map-get? auction-houses { house-id: (get house-id auction) }) err-house-not-found))
+    )
+    (asserts! (is-eq tx-sender (get creator auction)) err-not-authorized)
+    (asserts! (is-eq (get status auction) "pending") err-auction-started)
+    
+    (asserts! (match new-duration
+                duration (and (>= duration (get min-auction-duration house))
+                              (<= duration (get max-auction-duration house)))
+                true)
+              err-invalid-duration)
+    
+    (asserts! (match new-starting-price
+                price (> price u0)
+                true)
+              err-invalid-price)
+    
+    (map-set auctions
+      { auction-id: auction-id }
+      (merge auction 
+        {
+          duration: (default-to (get duration auction) new-duration),
+          starting-price: (default-to (get starting-price auction) new-starting-price)
+        }
+      )
+    )
+    (ok true)
+  )
+)
+
+;; Read-only functions
+
+;; Get auction details
+(define-read-only (get-auction (auction-id uint))
+  (map-get? auctions { auction-id: auction-id })
+)
+
+;; Get auction house details
+(define-read-only (get-auction-house (house-id uint))
+  (map-get? auction-houses { house-id: house-id })
+)
+
