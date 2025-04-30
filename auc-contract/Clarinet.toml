@@ -5,6 +5,8 @@ authors = []
 telemetry = true
 cache_dir = '.\.cache'
 requirements = []
+[contracts.auction-creation]
+path = 'contracts/auction-creation.clar'
 [contracts.Auction-house]
 path = 'contracts/Auction-house.clar'
 clarity_version = 3
