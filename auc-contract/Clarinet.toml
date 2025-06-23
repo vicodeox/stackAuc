@@ -17,6 +17,8 @@ epoch = 2.05
 
 [contracts.fund-management]
 path = 'contracts/fund-management.clar'
+[contracts.auction-time-management]
+path = 'contracts/auction-time-management.clar'
 clarity_version = 3
 epoch = 3.0
 [repl.analysis]
