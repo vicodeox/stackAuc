@@ -118,7 +118,7 @@
 )
   (let (
     (auction-id (+ (var-get auction-counter) u1))
-    (end-time (+ stacks-block-height duration))
+    (end-time (+ block-height duration))
   )
     (asserts! (validate-token-type token-type) ERR_INVALID_TOKEN)
     (asserts! (> reserve-price u0) ERR_INVALID_AMOUNT)
@@ -166,7 +166,7 @@
     (asserts! (get is-active auction) ERR_AUCTION_ENDED)
     (asserts! (>= bid-amount (get reserve-price auction)) ERR_INSUFFICIENT_FUNDS)
     (asserts! (> bid-amount current-bid) ERR_INSUFFICIENT_FUNDS)
-    (asserts! (<= stacks-block-height (get end-time auction)) ERR_AUCTION_ENDED)
+    (asserts! (<= block-height (get end-time auction)) ERR_AUCTION_ENDED)
     
     ;; Transfer funds to contract for escrow
     (try! (transfer-token token-type bid-amount tx-sender (as-contract tx-sender)))
