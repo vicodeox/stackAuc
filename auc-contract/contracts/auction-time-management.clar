@@ -15,6 +15,7 @@
 (define-constant ERR-AUCTION-PAUSED (err u102))
 (define-constant ERR-AUCTION-CANCELED (err u103))
 (define-constant ERR-INVALID-STATE (err u104))
+(define-constant ERR-BID-TOO-LOW (err u105))
 
 ;; Function to place a bid and check for anti-sniping
 (define-public (place-bid (bid-amount uint))
@@ -24,19 +25,19 @@
   )
     ;; Check auction status - using separate if statements to return early on errors
     (if (is-eq current-status "ended") 
-      (err (get error-code ERR-AUCTION-ENDED))
+      ERR-AUCTION-ENDED
       (if (is-eq current-status "paused") 
-        (err (get error-code ERR-AUCTION-PAUSED))
+        ERR-AUCTION-PAUSED
         (if (is-eq current-status "canceled") 
-          (err (get error-code ERR-AUCTION-CANCELED))
+          ERR-AUCTION-CANCELED
           (if (not (is-eq current-status "active")) 
-            (err (get error-code ERR-INVALID-STATE))
+            ERR-INVALID-STATE
             
             ;; Continue with other checks only if status is active
             (if (>= current-time (var-get auction-end-time))
-              (err (get error-code ERR-AUCTION-ENDED))
+              ERR-AUCTION-ENDED
               (if (<= bid-amount (var-get highest-bid))
-                (err u105)
+                ERR-BID-TOO-LOW
                 
                 ;; All checks passed, update bid info
                 (begin
@@ -72,23 +73,25 @@
     (asserts! (is-eq (var-get auction-status) "active") ERR-INVALID-STATE)
     ;; Extend the auction
     (var-set auction-end-time (+ (var-get auction-end-time) extension))
-    (ok true)))
+    (ok true)
+  )
+)
 
 ;; Function to end auction
 (define-public (end-auction)
-  (let ((current-time (- stacks-block-height u1)))
+  (let ((current-time stacks-block-height))
     ;; Only creator or system (if time expired) can end auction
     (asserts! (or 
                 (is-eq tx-sender (var-get auction-creator))
-                (and 
-                  (not (is-none current-time))
-                  (>= (default-to u0 current-time) (var-get auction-end-time))))
+                (>= current-time (var-get auction-end-time)))
               ERR-NOT-AUTHORIZED)
     ;; Check auction is active
     (asserts! (is-eq (var-get auction-status) "active") ERR-INVALID-STATE)
     ;; End the auction
     (var-set auction-status "ended")
-    (ok (var-get highest-bidder))))
+    (ok (var-get highest-bidder))
+  )
+)
 
 ;; Function to pause auction
 (define-public (pause-auction)
@@ -99,7 +102,9 @@
     (asserts! (is-eq (var-get auction-status) "active") ERR-INVALID-STATE)
     ;; Pause the auction
     (var-set auction-status "paused")
-    (ok true)))
+    (ok true)
+  )
+)
 
 ;; Function to resume auction
 (define-public (resume-auction)
@@ -110,7 +115,9 @@
     (asserts! (is-eq (var-get auction-status) "paused") ERR-INVALID-STATE)
     ;; Resume the auction
     (var-set auction-status "active")
-    (ok true)))
+    (ok true)
+  )
+)
 
 ;; Function to cancel auction
 (define-public (cancel-auction)
@@ -121,20 +128,102 @@
     (asserts! (not (is-eq (var-get auction-status) "ended")) ERR-INVALID-STATE)
     ;; Cancel the auction
     (var-set auction-status "canceled")
-    (ok true)))
+    (ok true)
+  )
+)
+
+;; Function to initialize auction
+(define-public (initialize-auction (duration uint))
+  (begin
+    ;; Only auction creator can initialize
+    (asserts! (is-eq tx-sender (var-get auction-creator)) ERR-NOT-AUTHORIZED)
+    ;; Set auction end time
+    (var-set auction-end-time (+ stacks-block-height duration))
+    ;; Reset auction state
+    (var-set auction-status "active")
+    (var-set highest-bid u0)
+    (var-set highest-bidder none)
+    (ok true)
+  )
+)
+
+;; Function to set anti-snipe parameters
+(define-public (set-anti-snipe-params (window uint) (extension uint))
+  (begin
+    ;; Only auction creator can set parameters
+    (asserts! (is-eq tx-sender (var-get auction-creator)) ERR-NOT-AUTHORIZED)
+    ;; Update parameters
+    (var-set anti-snipe-window window)
+    (var-set extension-time extension)
+    (ok true)
+  )
+)
 
 ;; Getter for auction status
 (define-read-only (get-auction-status)
-  (var-get auction-status))
+  (var-get auction-status)
+)
 
 ;; Getter for auction end time
 (define-read-only (get-auction-end-time)
-  (var-get auction-end-time))
+  (var-get auction-end-time)
+)
 
 ;; Getter for highest bid
 (define-read-only (get-highest-bid)
-  (var-get highest-bid))
+  (var-get highest-bid)
+)
 
 ;; Getter for highest bidder
 (define-read-only (get-highest-bidder)
-  (var-get highest-bidder))
+  (var-get highest-bidder)
+)
+
+;; Getter for time remaining
+(define-read-only (get-time-remaining)
+  (let ((current-time stacks-block-height)
+        (end-time (var-get auction-end-time)))
+    (if (>= current-time end-time)
+      u0
+      (- end-time current-time)
+    )
+  )
+)
+
+;; Getter for anti-snipe window
+(define-read-only (get-anti-snipe-window)
+  (var-get anti-snipe-window)
+)
+
+;; Getter for extension time
+(define-read-only (get-extension-time)
+  (var-get extension-time)
+)
+
+;; Check if auction is in anti-snipe period
+(define-read-only (is-in-anti-snipe-period)
+  (let ((current-time stacks-block-height)
+        (end-time (var-get auction-end-time))
+        (window (var-get anti-snipe-window)))
+    (and 
+      (is-eq (var-get auction-status) "active")
+      (< current-time end-time)
+      (< (- end-time current-time) window)
+    )
+  )
+)
+
+;; Get complete auction info
+(define-read-only (get-auction-info)
+  {
+    status: (var-get auction-status),
+    end-time: (var-get auction-end-time),
+    highest-bid: (var-get highest-bid),
+    highest-bidder: (var-get highest-bidder),
+    time-remaining: (get-time-remaining),
+    anti-snipe-window: (var-get anti-snipe-window),
+    extension-time: (var-get extension-time),
+    in-anti-snipe-period: (is-in-anti-snipe-period),
+    creator: (var-get auction-creator)
+  }
+)
