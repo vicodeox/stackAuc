@@ -1,46 +1,19 @@
 [project]
-name = 'auc-contract'
-description = ''
+name = "auc-contract"
 authors = []
+description = ""
 telemetry = true
-cache_dir = '.\.cache'
 requirements = []
-[contracts.Auc-security]
-path = 'contracts/Auc-security.clar'
-clarity_version = 3
-epoch = 3.0
+[contracts.dutch-auctions]
+path = "contracts/dutch-auctions.clar"
+depends_on = []
 
-[contracts.Auction-house]
-path = 'contracts/Auction-house.clar'
-clarity_version = 3
-epoch = 3.0
+[repl]
+costs_version = 2
+parser_version = 2
 
-[contracts.auction-completion]
-path = 'contracts/auction-completion.clar'
-clarity_version = 3
-epoch = 3.0
-
-[contracts.auction-creation]
-path = 'contracts/auction-creation.clar'
-clarity_version = 1
-epoch = 2.05
-
-[contracts.auction-time-management]
-path = 'contracts/auction-time-management.clar'
-clarity_version = 3
-epoch = 3.0
-
-[contracts.fund-management]
-path = 'contracts/fund-management.clar'
-clarity_version = 1
-epoch = 2.05
-
-[contracts.tracking]
-path = 'contracts/tracking.clar'
-clarity_version = 3
-epoch = 3.0
 [repl.analysis]
-passes = ['check_checker']
+passes = ["check_checker"]
 
 [repl.analysis.check_checker]
 strict = false
