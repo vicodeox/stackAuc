@@ -87,7 +87,7 @@
       { auction-id: new-auction-id }
       {
         creator: tx-sender,
-        start-time: stacks-block-height,
+        start-time: block-height,
         duration: duration,
         starting-price: starting-price,
         reserve-price: reserve-price,
